@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors - Warm, calming orange/amber -->
+    <color name="primary">#F59E0B</color>
+    <color name="primary_variant">#D97706</color>
+    <color name="on_primary">#FFFFFF</color>
+    
+    <!-- Secondary Colors -->
+    <color name="secondary">#8B5CF6</color>
+    <color name="secondary_variant">#7C3AED</color>
+    <color name="on_secondary">#FFFFFF</color>
+    
+    <!-- Background Colors -->
+    <color name="background_light">#FFFBEB</color>
+    <color name="background_dark">#1C1917</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="surface_dark">#292524</color>
+    
+    <!-- Text Colors -->
+    <color name="on_background_light">#1C1917</color>
+    <color name="on_background_dark">#FAFAF9</color>
+    <color name="on_surface_light">#1C1917</color>
+    <color name="on_surface_dark">#FAFAF9</color>
+    
+    <!-- Status Colors -->
+    <color name="success">#10B981</color>
+    <color name="error">#EF4444</color>
+    <color name="warning">#F59E0B</color>
+    
+    <!-- Focus Mode Colors -->
+    <color name="focus_active">#F59E0B</color>
+    <color name="focus_inactive">#A8A29E</color>
+</resources>
