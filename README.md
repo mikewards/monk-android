@@ -9,8 +9,10 @@ Focus without distractions. Monk silences notifications and sends auto-replies s
 - **Do Not Disturb** - Silence your phone completely during focus
 - **Deep Focus** - Prevents you from leaving the app during sessions
 - **Whitelist** - Let important contacts still reach you
-- **Timer** - Set focus duration or go indefinite
+- **Timer** - Set focus duration (15m, 30m, 1h, custom) or go indefinite
 - **Cooldown** - Avoid spamming the same person with replies
+- **Boot Resume** - Focus session continues if your phone restarts
+- **Haptic Feedback** - Subtle vibration when starting/stopping focus
 
 ## Privacy
 
@@ -29,6 +31,18 @@ Monk is built with a zero-knowledge architecture:
 | Do Not Disturb | No | Silence phone during focus |
 | Accessibility | No | Deep focus mode (prevents app switching) |
 | Contacts | No | Whitelist feature |
+
+## Supported Apps
+
+- WhatsApp
+- WhatsApp Business
+- Messenger
+- Instagram
+- Telegram
+- Signal
+- Discord
+- Slack
+- SMS/Messages
 
 ## Building
 
@@ -64,4 +78,3 @@ app/src/main/java/com/monk/app/
 ## License
 
 MIT
-
