@@ -189,7 +189,7 @@ class AutoReplyService : AccessibilityService() {
         }
         
         if (sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-            Log.d(TAG, "✓ Fallback reply sent via AccessibilityService")
+            Log.d(TAG, "Fallback reply sent via AccessibilityService")
             NotificationListener.repliesSent++
             pendingReply = null
         }

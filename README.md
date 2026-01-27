@@ -1,86 +1,66 @@
-# Monk 🧘
+# Monk
 
-**Focus without distractions.** Monk silences notifications and sends auto-replies so you can concentrate on what matters.
+Focus without distractions. Monk silences notifications and sends auto-replies so you can concentrate on what matters.
 
 ## Features
 
-- **Focus Mode Toggle** - One-tap to enter distraction-free mode
-- **Auto-Reply** - Automatically respond to messages with a custom "busy" message
-- **Notification Silencing** - Mute incoming notifications during focus sessions
-- **Multi-App Support** - Works with WhatsApp, Messenger, Instagram, Telegram, SMS, and more
-- **Whitelist Contacts** - Let important people still reach you
-- **Session Timer** - Set focus duration or go indefinite
-- **Reply Cooldown** - Avoid spamming the same person
+- **Focus Mode** - One tap to enter distraction-free mode
+- **Auto-Reply** - Automatically respond to messages while you're busy
+- **Do Not Disturb** - Silence your phone completely during focus
+- **Deep Focus** - Prevents you from leaving the app during sessions
+- **Whitelist** - Let important contacts still reach you
+- **Timer** - Set focus duration or go indefinite
+- **Cooldown** - Avoid spamming the same person with replies
 
-## Supported Apps
+## Privacy
 
-| App | Auto-Reply | Silence |
-|-----|------------|---------|
-| WhatsApp | ✅ | ✅ |
-| WhatsApp Business | ✅ | ✅ |
-| Messenger | ✅ | ✅ |
-| Instagram | ✅ | ✅ |
-| Telegram | ✅ | ✅ |
-| Signal | ✅ | ✅ |
-| Discord | ✅ | ✅ |
-| Slack | ✅ | ✅ |
-| SMS/Messages | ✅ | ✅ |
+Monk is built with a zero-knowledge architecture:
 
-## Tech Stack
-
-- **Kotlin** - Modern Android development
-- **Jetpack Compose** - Declarative UI
-- **Hilt** - Dependency injection
-- **Room** - Local database
-- **Coroutines & Flow** - Async operations
+- No internet permission - data never leaves your device
+- No analytics or tracking
+- No cloud services
+- Messages processed in memory only, never stored
 
 ## Permissions
 
-Monk requires the following permissions:
-
-| Permission | Purpose |
-|------------|---------|
-| **Notification Access** | Read incoming messages to trigger auto-replies |
-| **Accessibility Service** | Interact with messaging apps to send replies |
-| **SMS** | Send/receive SMS auto-replies |
-| **Contacts** | Whitelist contacts feature |
+| Permission | Required | Purpose |
+|------------|----------|---------|
+| Notification Access | Yes | Detect messages and send auto-replies |
+| Do Not Disturb | No | Silence phone during focus |
+| Accessibility | No | Deep focus mode (prevents app switching) |
+| Contacts | No | Whitelist feature |
 
 ## Building
 
-1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle
-4. Run on device or emulator
-
 ```bash
+git clone https://github.com/wardmic4/monk-android.git
+cd monk-android
 ./gradlew assembleDebug
 ```
+
+APK output: `app/build/outputs/apk/debug/app-debug.apk`
+
+## Tech Stack
+
+- Kotlin
+- Jetpack Compose
+- Hilt
+- DataStore
+- Coroutines
 
 ## Project Structure
 
 ```
-app/
-├── src/main/java/com/monk/app/
-│   ├── ui/           # Compose UI screens and components
-│   ├── service/      # Background services
-│   ├── domain/       # Business logic and models
-│   ├── data/         # Data layer (Room, DataStore)
-│   ├── di/           # Hilt modules
-│   ├── receiver/     # Broadcast receivers
-│   └── util/         # Utilities
+app/src/main/java/com/monk/app/
+├── data/         # DataStore preferences
+├── di/           # Hilt modules
+├── domain/       # Models
+├── receiver/     # Boot receiver
+├── service/      # NotificationListener, AccessibilityService, FocusService
+├── ui/           # Compose screens
+└── util/         # Permission helpers
 ```
-
-## Privacy
-
-- All data stays on your device
-- No analytics or tracking
-- No cloud services required
-- Messages are processed locally only
 
 ## License
 
-MIT License - see LICENSE file for details.
-
----
-
-Made with 🧘 for focused minds.
+MIT

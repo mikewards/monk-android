@@ -314,7 +314,7 @@ private fun OnboardingPageContent(
             Spacer(modifier = Modifier.height(40.dp))
             
             Text(
-                text = "✓ Enabled",
+                text = "Enabled",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = Success

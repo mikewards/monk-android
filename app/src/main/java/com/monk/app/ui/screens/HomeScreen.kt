@@ -1,5 +1,10 @@
 package com.monk.app.ui.screens
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -22,7 +27,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,7 +41,6 @@ import com.monk.app.util.PermissionHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToSettings: () -> Unit,
@@ -49,24 +52,21 @@ fun HomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val preferencesManager = remember { PreferencesManager(context) }
-    
+
     val focusState by viewModel.focusState.collectAsState()
     val selectedDuration by viewModel.selectedDuration.collectAsState()
-    
+
     var permissionStatus by remember { mutableStateOf(PermissionHelper.getPermissionStatus(context)) }
     var showNotificationHint by remember { mutableStateOf(false) }
     var hintDismissed by remember { mutableStateOf(true) }
     var lastFocusWasActive by remember { mutableStateOf(false) }
-    
-    // Load hint dismissed state
+
     LaunchedEffect(Unit) {
         hintDismissed = preferencesManager.notificationHintDismissed.first()
     }
-    
-    // Track focus session end with 0 replies
+
     LaunchedEffect(focusState.isActive) {
         if (lastFocusWasActive && !focusState.isActive) {
-            // Focus just ended
             if (focusState.repliesSent == 0 && focusState.notificationsSilenced == 0 && !hintDismissed) {
                 showNotificationHint = true
             }
@@ -81,9 +81,7 @@ fun HomeScreen(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
@@ -98,9 +96,8 @@ fun HomeScreen(
                 .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar - Minimal
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -112,7 +109,6 @@ fun HomeScreen(
                     letterSpacing = 4.sp,
                     color = TextMuted
                 )
-                
                 IconButton(
                     onClick = onNavigateToSettings,
                     modifier = Modifier.size(40.dp)
@@ -126,7 +122,6 @@ fun HomeScreen(
                 }
             }
 
-            // Permission Warning
             if (!permissionStatus.requiredPermissionsGranted) {
                 Spacer(modifier = Modifier.height(24.dp))
                 SetupRequiredCard(onClick = onNavigateToOnboarding)
@@ -134,12 +129,12 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.weight(0.3f))
 
-            // Main Focus Control
             FocusOrb(
                 isActive = focusState.isActive,
                 isEnabled = permissionStatus.requiredPermissionsGranted,
-                onClick = { 
+                onClick = {
                     if (permissionStatus.requiredPermissionsGranted) {
+                        performHapticFeedback(context)
                         if (focusState.isActive) {
                             viewModel.stopFocus()
                         } else {
@@ -151,7 +146,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Status
             Text(
                 text = when {
                     !permissionStatus.requiredPermissionsGranted -> "Setup required"
@@ -167,7 +161,6 @@ fun HomeScreen(
                 letterSpacing = 1.sp
             )
 
-            // Timer
             if (focusState.isActive) {
                 Spacer(modifier = Modifier.height(8.dp))
                 TimerDisplay(focusState = focusState)
@@ -175,10 +168,9 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.weight(0.2f))
 
-            // Duration Selector
             if (!focusState.isActive) {
                 var showCustomDialog by remember { mutableStateOf(false) }
-                
+
                 DurationSelector(
                     selectedDuration = selectedDuration,
                     onDurationSelected = { duration ->
@@ -189,7 +181,7 @@ fun HomeScreen(
                         }
                     }
                 )
-                
+
                 if (showCustomDialog) {
                     CustomDurationDialog(
                         initialMinutes = CustomDuration.minutes,
@@ -205,24 +197,18 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.weight(0.3f))
 
-            // Stats - Minimal
             if (focusState.isActive || focusState.notificationsSilenced > 0 || focusState.repliesSent > 0) {
                 StatsRow(focusState = focusState)
                 Spacer(modifier = Modifier.height(24.dp))
             }
-            
-            // Notification hint - shows after focus session with 0 activity
+
             if (showNotificationHint && !hintDismissed) {
                 NotificationHint(
-                    onOpenSettings = { 
-                        PermissionHelper.openAppNotificationSettings(context)
-                    },
+                    onOpenSettings = { PermissionHelper.openAppNotificationSettings(context) },
                     onDismiss = {
                         showNotificationHint = false
                         hintDismissed = true
-                        scope.launch {
-                            preferencesManager.setNotificationHintDismissed(true)
-                        }
+                        scope.launch { preferencesManager.setNotificationHintDismissed(true) }
                     }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -230,6 +216,23 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(48.dp))
             }
         }
+    }
+}
+
+private fun performHapticFeedback(context: Context) {
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        manager.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+    } else {
+        @Suppress("DEPRECATION")
+        vibrator.vibrate(50)
     }
 }
 
@@ -251,11 +254,6 @@ private fun SetupRequiredCard(onClick: () -> Unit) {
                 color = Warning,
                 modifier = Modifier.weight(1f)
             )
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Warning
-            )
         }
     }
 }
@@ -267,8 +265,7 @@ private fun FocusOrb(
     onClick: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "orb")
-    
-    // Subtle pulse when active
+
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = if (isActive) 1.02f else 1f,
@@ -278,8 +275,7 @@ private fun FocusOrb(
         ),
         label = "pulse"
     )
-    
-    // Glow animation when active
+
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.1f,
         targetValue = if (isActive) 0.25f else 0.1f,
@@ -310,10 +306,7 @@ private fun FocusOrb(
         label = "border"
     )
 
-    Box(
-        contentAlignment = Alignment.Center
-    ) {
-        // Outer glow (only when active)
+    Box(contentAlignment = Alignment.Center) {
         if (isActive) {
             Box(
                 modifier = Modifier
@@ -329,7 +322,6 @@ private fun FocusOrb(
             )
         }
 
-        // Main orb
         Box(
             modifier = Modifier
                 .size(180.dp)
@@ -345,33 +337,16 @@ private fun FocusOrb(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = when {
-                        !isEnabled -> "○"
-                        isActive -> "◉"
-                        else -> "○"
-                    },
-                    fontSize = 48.sp,
-                    color = when {
-                        !isEnabled -> Gray400
-                        isActive -> Accent
-                        else -> Primary
-                    }
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = when {
                         !isEnabled -> "LOCKED"
                         isActive -> "END"
                         else -> "BEGIN"
                     },
-                    style = MaterialTheme.typography.labelLarge,
-                    letterSpacing = 3.sp,
+                    style = MaterialTheme.typography.headlineMedium,
+                    letterSpacing = 4.sp,
+                    fontWeight = FontWeight.Light,
                     color = when {
                         !isEnabled -> Gray500
                         isActive -> OnPrimary
@@ -385,8 +360,8 @@ private fun FocusOrb(
 
 @Composable
 private fun TimerDisplay(focusState: FocusState) {
-    val duration = focusState.duration
     val timeRemaining = focusState.timeRemaining
+    val duration = focusState.duration
 
     val displayText = when {
         timeRemaining != null -> {
@@ -408,7 +383,7 @@ private fun TimerDisplay(focusState: FocusState) {
                 String.format("%02d:00", minutes)
             }
         }
-        else -> "∞"
+        else -> "--:--"
     }
 
     Text(
@@ -425,21 +400,17 @@ private fun DurationSelector(
     selectedDuration: FocusDuration,
     onDurationSelected: (FocusDuration) -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = "DURATION",
             style = MaterialTheme.typography.labelSmall,
             letterSpacing = 2.sp,
             color = TextMuted
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FocusDuration.entries.forEach { duration ->
                 val displayText = if (duration.isCustom && duration == selectedDuration) {
                     val mins = CustomDuration.minutes
@@ -451,7 +422,7 @@ private fun DurationSelector(
                 } else {
                     duration.displayName
                 }
-                
+
                 DurationPill(
                     text = displayText,
                     isSelected = duration == selectedDuration,
@@ -473,7 +444,7 @@ private fun DurationPill(
         animationSpec = tween(200),
         label = "pill_bg"
     )
-    
+
     val textColor by animateColorAsState(
         targetValue = if (isSelected) OnPrimary else TextMuted,
         animationSpec = tween(200),
@@ -502,37 +473,22 @@ private fun StatsRow(focusState: FocusState) {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        StatItem(
-            value = "${focusState.notificationsSilenced}",
-            label = "silenced"
-        )
-        
+        StatItem(value = "${focusState.notificationsSilenced}", label = "silenced")
         Spacer(modifier = Modifier.width(48.dp))
-        
         Box(
             modifier = Modifier
                 .width(1.dp)
                 .height(32.dp)
                 .background(Divider)
         )
-        
         Spacer(modifier = Modifier.width(48.dp))
-        
-        StatItem(
-            value = "${focusState.repliesSent}",
-            label = "replies"
-        )
+        StatItem(value = "${focusState.repliesSent}", label = "replies")
     }
 }
 
 @Composable
-private fun StatItem(
-    value: String,
-    label: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+private fun StatItem(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
             style = MaterialTheme.typography.headlineMedium,
@@ -558,12 +514,8 @@ private fun NotificationHint(
         color = SurfaceElevated,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "No messages?",
                     style = MaterialTheme.typography.bodyMedium,
@@ -575,30 +527,22 @@ private fun NotificationHint(
                     onClick = onDismiss,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Text(
-                        text = "✕",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextMuted
-                    )
+                    Text(text = "X", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
                 }
             }
-            
             Spacer(modifier = Modifier.height(4.dp))
-            
             Text(
                 text = "Make sure notifications are enabled for your apps.",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted
             )
-            
             Spacer(modifier = Modifier.height(12.dp))
-            
             TextButton(
                 onClick = onOpenSettings,
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Text(
-                    text = "Open notification settings →",
+                    text = "Open notification settings",
                     style = MaterialTheme.typography.labelMedium,
                     color = Primary
                 )
@@ -620,11 +564,7 @@ private fun CustomDurationDialog(
         onDismissRequest = onDismiss,
         containerColor = SurfaceElevated,
         title = {
-            Text(
-                text = "Set Duration",
-                style = MaterialTheme.typography.titleMedium,
-                color = Primary
-            )
+            Text(text = "Set Duration", style = MaterialTheme.typography.titleMedium, color = Primary)
         },
         text = {
             Column(
@@ -635,10 +575,9 @@ private fun CustomDurationDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    // Hours
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         IconButton(onClick = { if (hours < 12) hours++ }) {
-                            Text("▲", color = Primary, fontSize = 20.sp)
+                            Text("+", color = Primary, fontSize = 24.sp)
                         }
                         Text(
                             text = "$hours",
@@ -646,25 +585,18 @@ private fun CustomDurationDialog(
                             color = Primary
                         )
                         IconButton(onClick = { if (hours > 0) hours-- }) {
-                            Text("▼", color = Primary, fontSize = 20.sp)
+                            Text("-", color = Primary, fontSize = 24.sp)
                         }
                         Text("hours", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                     }
-                    
+
                     Spacer(modifier = Modifier.width(24.dp))
-                    
-                    Text(
-                        text = ":",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = Primary
-                    )
-                    
+                    Text(text = ":", style = MaterialTheme.typography.displaySmall, color = Primary)
                     Spacer(modifier = Modifier.width(24.dp))
-                    
-                    // Minutes
+
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         IconButton(onClick = { minutes = (minutes + 15) % 60 }) {
-                            Text("▲", color = Primary, fontSize = 20.sp)
+                            Text("+", color = Primary, fontSize = 24.sp)
                         }
                         Text(
                             text = String.format("%02d", minutes),
@@ -672,7 +604,7 @@ private fun CustomDurationDialog(
                             color = Primary
                         )
                         IconButton(onClick = { minutes = if (minutes >= 15) minutes - 15 else 45 }) {
-                            Text("▼", color = Primary, fontSize = 20.sp)
+                            Text("-", color = Primary, fontSize = 24.sp)
                         }
                         Text("min", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                     }
@@ -683,9 +615,7 @@ private fun CustomDurationDialog(
             TextButton(
                 onClick = {
                     val totalMinutes = hours * 60 + minutes
-                    if (totalMinutes > 0) {
-                        onConfirm(totalMinutes)
-                    }
+                    if (totalMinutes > 0) onConfirm(totalMinutes)
                 },
                 enabled = hours > 0 || minutes > 0
             ) {

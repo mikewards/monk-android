@@ -48,7 +48,7 @@ fun AppsScreen(
             ) {
                 TextButton(onClick = onNavigateBack) {
                     Text(
-                        "← Back",
+                        "Back",
                         style = MaterialTheme.typography.labelLarge,
                         color = Primary
                     )
@@ -96,7 +96,7 @@ fun AppsScreen(
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = "→",
+                        text = ">",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Primary
                     )

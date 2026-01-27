@@ -154,7 +154,7 @@ fun SettingsScreen(
             ) {
                 TextButton(onClick = onNavigateBack) {
                     Text(
-                        "← Back",
+                        "Back",
                         style = MaterialTheme.typography.labelLarge,
                         color = Primary
                     )
@@ -481,7 +481,7 @@ private fun SettingsRow(
                 )
             }
             Text(
-                text = "→",
+                text = ">",
                 style = MaterialTheme.typography.bodyLarge,
                 color = TextMuted
             )
@@ -522,7 +522,7 @@ private fun PermissionRow(
                 }
             }
             Text(
-                text = "→",
+                text = ">",
                 style = MaterialTheme.typography.bodyLarge,
                 color = TextMuted
             )

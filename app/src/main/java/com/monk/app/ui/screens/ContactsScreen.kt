@@ -33,12 +33,9 @@ import kotlinx.coroutines.launch
 
 /**
  * ContactsScreen - Privacy-First Implementation
- * 
- * ╔═══════════════════════════════════════════════════════════════════════╗
- * ║  PRIVACY: Only contact IDs are stored, never names or phone numbers.  ║
- * ║  Contact names are fetched from the device at display time only.      ║
- * ║  If a contact is deleted from the device, we gracefully handle it.    ║
- * ╚═══════════════════════════════════════════════════════════════════════╝
+ *
+ * Only contact IDs are stored, never names or phone numbers.
+ * Contact names are fetched from the device at display time only.
  */
 @Composable
 fun ContactsScreen(
@@ -100,7 +97,7 @@ fun ContactsScreen(
             ) {
                 TextButton(onClick = onNavigateBack) {
                     Text(
-                        "← Back",
+                        "Back",
                         style = MaterialTheme.typography.labelLarge,
                         color = Primary
                     )

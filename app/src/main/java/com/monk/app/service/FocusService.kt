@@ -13,56 +13,41 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.monk.app.MainActivity
 import com.monk.app.R
+import com.monk.app.data.datastore.PreferencesManager
 import com.monk.app.util.PermissionHelper
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 
 /**
- * FocusService - Foreground service that manages focus mode lifecycle.
- * Coordinates between NotificationListener and AutoReplyService.
+ * Foreground service managing focus mode lifecycle.
+ * Coordinates NotificationListener and AutoReplyService.
  */
 class FocusService : Service() {
 
     companion object {
-        private const val TAG = "Monk.FocusService"
+        private const val TAG = "FocusService"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "monk_focus_channel"
-        
+
         private const val ACTION_START = "com.monk.app.START_FOCUS"
         private const val ACTION_STOP = "com.monk.app.STOP_FOCUS"
+        private const val ACTION_RESUME = "com.monk.app.RESUME_FOCUS"
         private const val EXTRA_DURATION_MS = "duration_ms"
-        
-        @Volatile
-        var isRunning = false
+
+        @Volatile var isRunning = false
             private set
-        
-        /**
-         * When the focus session started (persisted across app restarts)
-         */
-        @Volatile
-        var focusStartTimeMs: Long = 0
+
+        @Volatile var focusStartTimeMs: Long = 0
             private set
-        
-        /**
-         * Duration of the focus session in milliseconds (0 = indefinite)
-         */
-        @Volatile
-        var focusDurationMs: Long = 0
+
+        @Volatile var focusDurationMs: Long = 0
             private set
-        
-        /**
-         * Flag for Deep Focus mode (auto-reopen when user leaves)
-         */
-        @Volatile
-        var deepFocusEnabled = false
-        
-        /**
-         * Flag for Do Not Disturb mode (silence phone during focus)
-         */
-        @Volatile
-        var dndEnabled = false
-        
+
+        @Volatile var deepFocusEnabled = false
+        @Volatile var dndEnabled = false
+
         fun start(context: Context, durationMs: Long = 0) {
-            Log.d(TAG, "Starting FocusService with duration: ${durationMs}ms")
+            Log.d(TAG, "Starting with duration: ${durationMs}ms")
             val intent = Intent(context, FocusService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_DURATION_MS, durationMs)
@@ -73,17 +58,24 @@ class FocusService : Service() {
                 context.startService(intent)
             }
         }
-        
+
         fun stop(context: Context) {
-            Log.d(TAG, "Stopping FocusService")
-            val intent = Intent(context, FocusService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
+            Log.d(TAG, "Stopping")
+            context.startService(
+                Intent(context, FocusService::class.java).apply { action = ACTION_STOP }
+            )
+        }
+
+        fun resume(context: Context) {
+            Log.d(TAG, "Resuming after boot")
+            context.startService(
+                Intent(context, FocusService::class.java).apply { action = ACTION_RESUME }
+            )
         }
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private lateinit var preferencesManager: PreferencesManager
     private var updateJob: Job? = null
     private var timerJob: Job? = null
 
@@ -91,7 +83,7 @@ class FocusService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "FocusService created")
+        preferencesManager = PreferencesManager(this)
         createNotificationChannel()
     }
 
@@ -102,152 +94,167 @@ class FocusService : Service() {
                 startFocusMode(durationMs)
             }
             ACTION_STOP -> stopFocusMode()
-            else -> {
-                // Service restarted by system, resume focus mode
-                if (isRunning) {
-                    resumeFocusMode()
-                }
-            }
+            ACTION_RESUME -> resumeFromBoot()
+            else -> if (isRunning) resumeFocusMode()
         }
-        
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
-        stopFocusMode()
-        Log.d(TAG, "FocusService destroyed")
+        Log.d(TAG, "Destroyed")
     }
 
     private fun startFocusMode(durationMs: Long) {
         if (isRunning) {
-            Log.d(TAG, "Focus mode already running")
+            Log.d(TAG, "Already running")
             return
         }
-        
+
         isRunning = true
         focusStartTimeMs = System.currentTimeMillis()
         focusDurationMs = durationMs
-        
-        // Activate NotificationListener
+
+        // Persist for boot resume
+        serviceScope.launch {
+            preferencesManager.setFocusSession(true, focusStartTimeMs, focusDurationMs)
+        }
+
         NotificationListener.isFocusModeActive = true
         NotificationListener.notificationsSilenced = 0
         NotificationListener.repliesSent = 0
-        
-        // Reset reply cooldowns
         AutoReplyManager.reset()
-        
-        // Notify AutoReplyService about deep focus mode
         AutoReplyService.deepFocusActive = deepFocusEnabled
-        
-        // Enable Do Not Disturb if setting is on
+
         if (dndEnabled) {
-            val dndResult = PermissionHelper.enableDnd(this)
-            Log.d(TAG, "DND enabled: $dndResult")
+            PermissionHelper.enableDnd(this)
         }
-        
-        // Start foreground with notification
+
         startForeground(NOTIFICATION_ID, createNotification())
-        
-        // Start periodic notification updates
         startNotificationUpdates()
-        
-        // Start timer if duration is set
+
         if (durationMs > 0) {
             startTimer(durationMs)
         }
-        
-        Log.d(TAG, "═══════════════════════════════════════════")
-        Log.d(TAG, "FOCUS MODE ACTIVATED")
-        Log.d(TAG, "Duration: ${durationMs / 1000 / 60} minutes")
-        Log.d(TAG, "NotificationListener active: ${NotificationListener.isFocusModeActive}")
-        Log.d(TAG, "AutoReplyService connected: ${AutoReplyService.isServiceConnected}")
-        Log.d(TAG, "Deep Focus: $deepFocusEnabled")
-        Log.d(TAG, "DND: $dndEnabled")
-        Log.d(TAG, "═══════════════════════════════════════════")
+
+        Log.d(TAG, "Focus started - duration: ${durationMs / 60000}min, deepFocus: $deepFocusEnabled, dnd: $dndEnabled")
     }
-    
+
+    private fun resumeFromBoot() {
+        serviceScope.launch {
+            val wasActive = preferencesManager.focusActive.first()
+            if (!wasActive) {
+                Log.d(TAG, "No active session to resume")
+                stopSelf()
+                return@launch
+            }
+
+            val startTime = preferencesManager.focusStartTime.first()
+            val duration = preferencesManager.focusDurationMs.first()
+
+            // Check if timed session has expired
+            if (duration > 0) {
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed >= duration) {
+                    Log.d(TAG, "Session expired during boot, clearing")
+                    preferencesManager.setFocusSession(false)
+                    stopSelf()
+                    return@launch
+                }
+            }
+
+            // Resume the session
+            focusStartTimeMs = startTime
+            focusDurationMs = duration
+            isRunning = true
+
+            // Load preferences
+            deepFocusEnabled = preferencesManager.deepFocusEnabled.first()
+            dndEnabled = preferencesManager.dndEnabled.first()
+
+            NotificationListener.isFocusModeActive = true
+            AutoReplyService.deepFocusActive = deepFocusEnabled
+
+            if (dndEnabled) {
+                PermissionHelper.enableDnd(this@FocusService)
+            }
+
+            startForeground(NOTIFICATION_ID, createNotification())
+            startNotificationUpdates()
+
+            if (duration > 0) {
+                val remaining = duration - (System.currentTimeMillis() - startTime)
+                startTimer(remaining)
+            }
+
+            Log.d(TAG, "Resumed from boot")
+        }
+    }
+
     private fun resumeFocusMode() {
-        Log.d(TAG, "Resuming focus mode")
-        
-        // Check if timer has expired while we were dead
+        Log.d(TAG, "Resuming")
+
         if (focusDurationMs > 0) {
             val elapsed = System.currentTimeMillis() - focusStartTimeMs
             val remaining = focusDurationMs - elapsed
-            
+
             if (remaining <= 0) {
-                Log.d(TAG, "Timer expired while service was dead, stopping")
+                Log.d(TAG, "Timer expired, stopping")
                 stopFocusMode()
                 return
             }
-            
-            // Resume timer with remaining time
             startTimer(remaining)
         }
-        
-        // Re-activate everything
+
         NotificationListener.isFocusModeActive = true
         AutoReplyService.deepFocusActive = deepFocusEnabled
-        
-        // Restart notification updates
+
         startForeground(NOTIFICATION_ID, createNotification())
         startNotificationUpdates()
     }
 
     private fun stopFocusMode() {
-        if (!isRunning) {
-            Log.d(TAG, "Focus mode not running")
-            return
-        }
-        
+        if (!isRunning) return
+
         isRunning = false
-        
-        // Deactivate NotificationListener
-        NotificationListener.isFocusModeActive = false
-        
-        // Deactivate deep focus
-        AutoReplyService.deepFocusActive = false
-        
-        // Disable Do Not Disturb if we enabled it
-        if (dndEnabled) {
-            val dndResult = PermissionHelper.disableDnd(this)
-            Log.d(TAG, "DND disabled: $dndResult")
+
+        // Clear persisted state
+        serviceScope.launch {
+            preferencesManager.setFocusSession(false)
         }
-        
-        // Stop updates and timer
+
+        NotificationListener.isFocusModeActive = false
+        AutoReplyService.deepFocusActive = false
+
+        if (dndEnabled) {
+            PermissionHelper.disableDnd(this)
+        }
+
         updateJob?.cancel()
         timerJob?.cancel()
-        
-        // Stop foreground
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
-        
-        stopSelf()
-        
-        val duration = (System.currentTimeMillis() - focusStartTimeMs) / 1000 / 60
-        
-        // Reset times
+
+        val durationMin = (System.currentTimeMillis() - focusStartTimeMs) / 60000
+        Log.d(TAG, "Focus ended - ${durationMin}min, silenced: ${NotificationListener.notificationsSilenced}, replies: ${NotificationListener.repliesSent}")
+
         focusStartTimeMs = 0
         focusDurationMs = 0
-        
-        Log.d(TAG, "═══════════════════════════════════════════")
-        Log.d(TAG, "FOCUS MODE ENDED")
-        Log.d(TAG, "Duration: $duration minutes")
-        Log.d(TAG, "Notifications silenced: ${NotificationListener.notificationsSilenced}")
-        Log.d(TAG, "Replies sent: ${NotificationListener.repliesSent}")
-        Log.d(TAG, "═══════════════════════════════════════════")
+
+        stopSelf()
     }
-    
+
     private fun startTimer(durationMs: Long) {
         timerJob?.cancel()
         timerJob = serviceScope.launch {
             delay(durationMs)
-            Log.d(TAG, "Timer expired, stopping focus mode")
+            Log.d(TAG, "Timer expired")
             stopFocusMode()
         }
     }
@@ -263,41 +270,32 @@ class FocusService : Service() {
                 setShowBadge(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
-            
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
     private fun createNotification(): Notification {
-        val elapsed = (System.currentTimeMillis() - focusStartTimeMs) / 1000 / 60
-        val stats = "${NotificationListener.notificationsSilenced} silenced · ${NotificationListener.repliesSent} replies"
-        
-        // Calculate time remaining if duration is set
+        val stats = "${NotificationListener.notificationsSilenced} silenced, ${NotificationListener.repliesSent} replies"
+
         val timeText = if (focusDurationMs > 0) {
             val remaining = focusDurationMs - (System.currentTimeMillis() - focusStartTimeMs)
-            val remainingMin = (remaining / 1000 / 60).coerceAtLeast(0)
-            "${remainingMin}m left"
+            "${(remaining / 60000).coerceAtLeast(0)}m left"
         } else {
-            "${elapsed}m"
+            "${(System.currentTimeMillis() - focusStartTimeMs) / 60000}m"
         }
-        
-        // Open app intent
+
         val openIntent = PendingIntent.getActivity(
-            this,
-            0,
+            this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
-        // Stop focus intent
+
         val stopIntent = PendingIntent.getService(
-            this,
-            1,
+            this, 1,
             Intent(this, FocusService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Focus mode active")
             .setContentText(stats)
@@ -316,11 +314,10 @@ class FocusService : Service() {
         updateJob?.cancel()
         updateJob = serviceScope.launch {
             while (isActive && isRunning) {
-                delay(60_000) // Update every minute
-                
+                delay(60_000)
                 if (isRunning) {
-                    val manager = getSystemService(NotificationManager::class.java)
-                    manager.notify(NOTIFICATION_ID, createNotification())
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIFICATION_ID, createNotification())
                 }
             }
         }
