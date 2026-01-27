@@ -11,7 +11,8 @@ data class FocusState(
     val startedAt: Instant? = null,
     val scheduledEndAt: Instant? = null, // null = indefinite
     val repliesSent: Int = 0,
-    val notificationsSilenced: Int = 0
+    val notificationsSilenced: Int = 0,
+    val tick: Long = 0 // Increments every second to force UI updates
 ) {
     /**
      * How long the current focus session has been active
@@ -44,13 +45,21 @@ data class FocusState(
  */
 enum class FocusDuration(
     val displayName: String,
-    val duration: Duration?
+    val duration: Duration?,
+    val isCustom: Boolean = false
 ) {
-    MINUTES_15("15 min", Duration.ofMinutes(15)),
-    MINUTES_30("30 min", Duration.ofMinutes(30)),
-    MINUTES_45("45 min", Duration.ofMinutes(45)),
-    HOUR_1("1 hour", Duration.ofHours(1)),
-    HOURS_2("2 hours", Duration.ofHours(2)),
-    HOURS_4("4 hours", Duration.ofHours(4)),
-    INDEFINITE("Until I stop", null);
+    MINUTES_30("30m", Duration.ofMinutes(30)),
+    HOUR_1("1h", Duration.ofHours(1)),
+    HOURS_2("2h", Duration.ofHours(2)),
+    CUSTOM("Custom", null, true),
+    INDEFINITE("∞", null);
+}
+
+/**
+ * Holds custom duration value set by user
+ */
+object CustomDuration {
+    var minutes: Int = 60
+    
+    fun getDuration(): Duration = Duration.ofMinutes(minutes.toLong())
 }

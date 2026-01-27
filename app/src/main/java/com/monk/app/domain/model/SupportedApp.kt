@@ -1,113 +1,169 @@
 package com.monk.app.domain.model
 
 /**
- * Represents messaging apps that Monk can send auto-replies to.
- * Each app has specific UI element identifiers for the accessibility service.
+ * Supported messaging apps for auto-reply
+ * 
+ * These apps support notification reply actions (RemoteInput),
+ * which means auto-reply works automatically without any
+ * app-specific configuration.
+ * 
+ * Users can enable/disable specific apps in settings.
  */
 enum class SupportedApp(
-    val packageName: String,
     val displayName: String,
-    val iconRes: Int? = null, // TODO: Add icons
-    val inputFieldId: String? = null,
-    val sendButtonId: String? = null,
-    val sendButtonContentDesc: String? = null
+    val packageName: String
 ) {
     WHATSAPP(
-        packageName = "com.whatsapp",
         displayName = "WhatsApp",
-        inputFieldId = "com.whatsapp:id/entry",
-        sendButtonId = "com.whatsapp:id/send",
-        sendButtonContentDesc = "Send"
+        packageName = "com.whatsapp"
     ),
+    
     WHATSAPP_BUSINESS(
-        packageName = "com.whatsapp.w4b",
         displayName = "WhatsApp Business",
-        inputFieldId = "com.whatsapp.w4b:id/entry",
-        sendButtonId = "com.whatsapp.w4b:id/send",
-        sendButtonContentDesc = "Send"
+        packageName = "com.whatsapp.w4b"
     ),
+    
     MESSENGER(
-        packageName = "com.facebook.orca",
         displayName = "Messenger",
-        sendButtonContentDesc = "Send"
+        packageName = "com.facebook.orca"
     ),
+    
     MESSENGER_LITE(
-        packageName = "com.facebook.mlite",
         displayName = "Messenger Lite",
-        sendButtonContentDesc = "Send"
+        packageName = "com.facebook.mlite"
     ),
+    
     INSTAGRAM(
-        packageName = "com.instagram.android",
         displayName = "Instagram",
-        sendButtonContentDesc = "Send"
+        packageName = "com.instagram.android"
     ),
+    
     TELEGRAM(
-        packageName = "org.telegram.messenger",
         displayName = "Telegram",
-        inputFieldId = "org.telegram.messenger:id/chat_input_text",
-        sendButtonId = "org.telegram.messenger:id/send_button"
+        packageName = "org.telegram.messenger"
     ),
+    
     TELEGRAM_X(
-        packageName = "org.thunderdog.challegram",
         displayName = "Telegram X",
-        sendButtonContentDesc = "Send"
+        packageName = "org.thunderdog.chalern"
     ),
-    SIGNAL(
-        packageName = "org.thoughtcrime.securesms",
-        displayName = "Signal",
-        sendButtonContentDesc = "Send"
-    ),
+    
     MESSAGES(
-        packageName = "com.google.android.apps.messaging",
-        displayName = "Messages",
-        sendButtonContentDesc = "Send SMS"
+        displayName = "Google Messages",
+        packageName = "com.google.android.apps.messaging"
     ),
+    
     SAMSUNG_MESSAGES(
-        packageName = "com.samsung.android.messaging",
         displayName = "Samsung Messages",
-        sendButtonContentDesc = "Send"
+        packageName = "com.samsung.android.messaging"
     ),
-    DISCORD(
-        packageName = "com.discord",
-        displayName = "Discord",
-        sendButtonContentDesc = "Send"
+    
+    SIGNAL(
+        displayName = "Signal",
+        packageName = "org.thoughtcrime.securesms"
     ),
-    SLACK(
-        packageName = "com.Slack",
-        displayName = "Slack",
-        sendButtonContentDesc = "Send"
-    ),
-    TWITTER(
-        packageName = "com.twitter.android",
-        displayName = "X (Twitter)",
-        sendButtonContentDesc = "Send"
-    ),
+    
     SNAPCHAT(
-        packageName = "com.snapchat.android",
         displayName = "Snapchat",
-        sendButtonContentDesc = "Send"
+        packageName = "com.snapchat.android"
+    ),
+    
+    DISCORD(
+        displayName = "Discord",
+        packageName = "com.discord"
+    ),
+    
+    SLACK(
+        displayName = "Slack",
+        packageName = "com.Slack"
+    ),
+    
+    TWITTER(
+        displayName = "X (Twitter)",
+        packageName = "com.twitter.android"
+    ),
+    
+    LINKEDIN(
+        displayName = "LinkedIn",
+        packageName = "com.linkedin.android"
+    ),
+    
+    TEAMS(
+        displayName = "Microsoft Teams",
+        packageName = "com.microsoft.teams"
+    ),
+    
+    GROUPME(
+        displayName = "GroupMe",
+        packageName = "com.groupme.android"
+    ),
+    
+    VIBER(
+        displayName = "Viber",
+        packageName = "com.viber.voip"
+    ),
+    
+    WECHAT(
+        displayName = "WeChat",
+        packageName = "com.tencent.mm"
+    ),
+    
+    LINE(
+        displayName = "LINE",
+        packageName = "jp.naver.line.android"
+    ),
+    
+    KIK(
+        displayName = "Kik",
+        packageName = "kik.android"
+    ),
+    
+    SKYPE(
+        displayName = "Skype",
+        packageName = "com.skype.raider"
+    ),
+    
+    GOOGLE_CHAT(
+        displayName = "Google Chat",
+        packageName = "com.google.android.apps.dynamite"
+    ),
+    
+    THREEMA(
+        displayName = "Threema",
+        packageName = "ch.threema.app"
+    ),
+    
+    WIRE(
+        displayName = "Wire",
+        packageName = "com.wire"
     );
-
+    
     companion object {
         /**
-         * Find a supported app by its package name
+         * Find app by package name
          */
         fun fromPackageName(packageName: String): SupportedApp? {
             return entries.find { it.packageName == packageName }
         }
-
+        
         /**
-         * Check if a package is a supported messaging app
+         * Get all package names
          */
-        fun isSupported(packageName: String): Boolean {
-            return entries.any { it.packageName == packageName }
-        }
-
+        val allPackageNames: List<String>
+            get() = entries.map { it.packageName }
+            
         /**
-         * Get default apps to enable (most common messaging apps)
+         * Default enabled apps
          */
-        fun defaultEnabled(): Set<SupportedApp> {
-            return setOf(WHATSAPP, MESSENGER, INSTAGRAM, MESSAGES, TELEGRAM)
-        }
+        val defaultEnabled: Set<String>
+            get() = setOf(
+                WHATSAPP.packageName,
+                WHATSAPP_BUSINESS.packageName,
+                MESSENGER.packageName,
+                INSTAGRAM.packageName,
+                TELEGRAM.packageName,
+                MESSAGES.packageName,
+                SIGNAL.packageName
+            )
     }
 }

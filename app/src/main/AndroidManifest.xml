@@ -2,29 +2,40 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Basic permissions -->
+    <!--
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                    ZERO-KNOWLEDGE ARCHITECTURE                      ║
+    ╠═══════════════════════════════════════════════════════════════════╣
+    ║  Monk explicitly does NOT request:                                 ║
+    ║  • INTERNET - No data can ever leave your device                   ║
+    ║  • ACCESS_NETWORK_STATE - We don't even check for connectivity     ║
+    ║                                                                     ║
+    ║  Your messages, contacts, and activity stay on YOUR device.        ║
+    ║  Period.                                                            ║
+    ╚═══════════════════════════════════════════════════════════════════╝
+    -->
+
+    <!-- Core functionality -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- For reading contacts (whitelist feature) -->
+    <!-- For reading contacts (whitelist feature - optional) -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
-    <!-- For SMS auto-reply -->
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <uses-permission android:name="android.permission.SEND_SMS" />
-    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- For Do Not Disturb control during focus mode -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <application
         android:name=".MonkApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Monk"
+        android:usesCleartextTraffic="false"
         tools:targetApi="34">
 
         <!-- Main Activity -->
@@ -61,9 +72,10 @@
                 android:resource="@xml/notification_listener_config" />
         </service>
 
-        <!-- Accessibility Service for Auto-Reply -->
+        <!-- Accessibility Service for Auto-Reply (Optional fallback) -->
         <service
             android:name=".service.AutoReplyService"
+            android:label="@string/app_name"
             android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
@@ -80,16 +92,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- SMS Receiver -->
-        <receiver
-            android:name=".receiver.SmsReceiver"
-            android:exported="true"
-            android:permission="android.permission.BROADCAST_SMS">
-            <intent-filter android:priority="999">
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
 

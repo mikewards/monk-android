@@ -2,37 +2,75 @@ package com.monk.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.monk.app.domain.model.SupportedApp
+import com.monk.app.MainActivity
 
 /**
- * Accessibility service that sends auto-replies by interacting with messaging app UIs.
+ * AutoReplyService - Accessibility Service with two purposes:
  * 
- * This service:
- * 1. Detects when a messaging app's chat window is open
- * 2. Finds the text input field and send button
- * 3. Types and sends the auto-reply message
+ * 1. FALLBACK AUTO-REPLY: For apps that don't support notification quick-reply
+ * 2. DEEP FOCUS: Brings user back to Monk when they try to leave during focus
  */
 class AutoReplyService : AccessibilityService() {
 
     companion object {
-        private const val TAG = "MonkAutoReplyService"
+        private const val TAG = "Monk.AutoReplyService"
         
-        // Default reply message (should be loaded from preferences)
-        private const val DEFAULT_REPLY = "Hey! I'm currently in focus mode and can't respond right now. I'll get back to you soon! 🧘"
+        const val ACTION_SEND_REPLY = "com.monk.app.ACTION_SEND_REPLY"
+        const val EXTRA_PACKAGE_NAME = "package_name"
+        const val EXTRA_SENDER = "sender"
+        const val EXTRA_REPLY_MESSAGE = "reply_message"
+        
+        private const val MONK_PACKAGE = "com.monk.app"
         
         @Volatile
-        var instance: AutoReplyService? = null
-            private set
+        var isServiceConnected = false
+        
+        /**
+         * When true, the service will bring user back to Monk
+         * whenever they try to switch to another app
+         */
+        @Volatile
+        var deepFocusActive = false
+    }
+
+    private var pendingReply: PendingReply? = null
+    private var lastReopenTime = 0L
+    private val reopenCooldownMs = 500L // Prevent rapid reopening
+    
+    private val replyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_SEND_REPLY) {
+                val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
+                val sender = intent.getStringExtra(EXTRA_SENDER) ?: return
+                val replyMessage = intent.getStringExtra(EXTRA_REPLY_MESSAGE) ?: return
+                
+                Log.d(TAG, "Received fallback reply request for $packageName to $sender")
+                
+                pendingReply = PendingReply(packageName, sender, replyMessage)
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(TAG, "AutoReplyService created")
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        instance = this
+        isServiceConnected = true
+        Log.d(TAG, "AutoReplyService connected")
         
+        // Configure the service
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                     AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
@@ -43,32 +81,45 @@ class AutoReplyService : AccessibilityService() {
         }
         serviceInfo = info
         
-        Log.d(TAG, "AutoReplyService connected")
+        // Register for reply broadcasts
+        val filter = IntentFilter(ACTION_SEND_REPLY)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(replyReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(replyReceiver, filter)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        instance = null
+        isServiceConnected = false
+        deepFocusActive = false
+        try {
+            unregisterReceiver(replyReceiver)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error unregistering receiver", e)
+        }
         Log.d(TAG, "AutoReplyService destroyed")
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        // Only process if focus mode is active
-        if (!FocusManager.isActive()) return
-
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        event ?: return
+        
         val packageName = event.packageName?.toString() ?: return
         
-        // Only process supported apps
-        val app = SupportedApp.fromPackageName(packageName) ?: return
-
-        // Check if we have a pending reply for this app
-        if (!AutoReplyManager.hasPendingReply(packageName)) return
-
-        when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                // Try to send the reply
-                trySendReply(app)
+        // Deep Focus: Bring user back to Monk if they try to leave
+        if (deepFocusActive && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            handleDeepFocus(packageName)
+        }
+        
+        // Fallback reply handling
+        val pending = pendingReply
+        if (pending != null && pending.packageName == packageName) {
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                    tryGenericReply(pending)
+                }
             }
         }
     }
@@ -77,122 +128,126 @@ class AutoReplyService : AccessibilityService() {
         Log.d(TAG, "AutoReplyService interrupted")
     }
 
-    private fun trySendReply(app: SupportedApp) {
+    /**
+     * Deep Focus: Detect when user leaves Monk and bring them back
+     */
+    private fun handleDeepFocus(currentPackage: String) {
+        // Only ignore system UI (notification shade, settings, etc.) - NOT launchers
+        val systemPackages = listOf(
+            "com.android.systemui",
+            MONK_PACKAGE
+        )
+        
+        if (systemPackages.any { currentPackage.contains(it) }) {
+            return
+        }
+        
+        // User switched to another app or home screen - bring them back!
+        val now = System.currentTimeMillis()
+        if (now - lastReopenTime < reopenCooldownMs) {
+            return // Cooldown to prevent rapid reopening
+        }
+        
+        Log.d(TAG, "Deep Focus: User tried to open $currentPackage - bringing back to Monk")
+        lastReopenTime = now
+        
+        // Launch Monk
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        startActivity(intent)
+    }
+
+    /**
+     * Try to send a reply using generic UI element detection.
+     * This is a best-effort fallback that may not work with all apps.
+     */
+    private fun tryGenericReply(pending: PendingReply) {
         val rootNode = rootInActiveWindow ?: return
         
-        try {
-            // Find the text input field
-            val inputField = findInputField(rootNode, app)
-            if (inputField == null) {
-                Log.d(TAG, "Input field not found for ${app.displayName}")
-                return
-            }
-
-            // Find the send button
-            val sendButton = findSendButton(rootNode, app)
-            if (sendButton == null) {
-                Log.d(TAG, "Send button not found for ${app.displayName}")
-                return
-            }
-
-            // Get the reply message
-            val replyMessage = getReplyMessage()
-
-            // Set the text in the input field
-            val textArgs = Bundle().apply {
-                putCharSequence(
-                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                    replyMessage
-                )
-            }
-            val textSet = inputField.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, textArgs)
-            
-            if (!textSet) {
-                Log.e(TAG, "Failed to set text in input field")
-                return
-            }
-
-            // Small delay to ensure text is set
-            Thread.sleep(100)
-
-            // Click the send button
-            val sent = sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            
-            if (sent) {
-                // Mark the reply as sent
-                AutoReplyManager.getPendingReply(app.packageName)?.let {
-                    AutoReplyManager.markReplySent(it)
-                }
-                Log.d(TAG, "Successfully sent reply in ${app.displayName}")
-            } else {
-                Log.e(TAG, "Failed to click send button")
-            }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending reply", e)
-        } finally {
-            rootNode.recycle()
+        // Find any editable text field
+        val inputField = findEditableField(rootNode)
+        if (inputField == null) {
+            Log.d(TAG, "No editable field found")
+            return
+        }
+        
+        // Try to set text
+        val textSet = setTextInField(inputField, pending.message)
+        if (!textSet) {
+            Log.d(TAG, "Failed to set text")
+            return
+        }
+        
+        // Find and click send button
+        val sendButton = findSendButton(rootNode)
+        if (sendButton == null) {
+            Log.d(TAG, "No send button found")
+            return
+        }
+        
+        if (sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            Log.d(TAG, "✓ Fallback reply sent via AccessibilityService")
+            NotificationListener.repliesSent++
+            pendingReply = null
         }
     }
 
-    private fun findInputField(root: AccessibilityNodeInfo, app: SupportedApp): AccessibilityNodeInfo? {
-        // Try specific resource ID first
-        app.inputFieldId?.let { id ->
-            val nodes = root.findAccessibilityNodeInfosByViewId(id)
-            if (nodes.isNotEmpty()) {
-                return nodes[0]
-            }
+    private fun findEditableField(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        // Look for editable text fields
+        if (node.isEditable && node.className?.contains("EditText") == true) {
+            return node
         }
-
-        // Fallback: Find editable text field
-        return findNodeByPredicate(root) { node ->
-            node.isEditable && node.className?.contains("EditText") == true
-        }
-    }
-
-    private fun findSendButton(root: AccessibilityNodeInfo, app: SupportedApp): AccessibilityNodeInfo? {
-        // Try specific resource ID first
-        app.sendButtonId?.let { id ->
-            val nodes = root.findAccessibilityNodeInfosByViewId(id)
-            if (nodes.isNotEmpty()) {
-                return nodes[0]
-            }
-        }
-
-        // Try content description
-        app.sendButtonContentDesc?.let { desc ->
-            return findNodeByPredicate(root) { node ->
-                node.contentDescription?.toString()?.contains(desc, ignoreCase = true) == true &&
-                        node.isClickable
-            }
-        }
-
-        // Fallback: Find clickable node with "send" in content description
-        return findNodeByPredicate(root) { node ->
-            (node.contentDescription?.toString()?.contains("send", ignoreCase = true) == true ||
-                    node.text?.toString()?.contains("send", ignoreCase = true) == true) &&
-                    node.isClickable
-        }
-    }
-
-    private fun findNodeByPredicate(
-        root: AccessibilityNodeInfo,
-        predicate: (AccessibilityNodeInfo) -> Boolean
-    ): AccessibilityNodeInfo? {
-        if (predicate(root)) return root
-
-        for (i in 0 until root.childCount) {
-            val child = root.getChild(i) ?: continue
-            val result = findNodeByPredicate(child, predicate)
+        
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findEditableField(child)
             if (result != null) return result
-            child.recycle()
         }
-
+        
         return null
     }
 
-    private fun getReplyMessage(): String {
-        // TODO: Load from preferences
-        return DEFAULT_REPLY
+    private fun findSendButton(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        // Look for send buttons by content description or text
+        val sendKeywords = listOf("send", "submit", "post", "reply")
+        
+        val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+        val text = node.text?.toString()?.lowercase() ?: ""
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        
+        if (node.isClickable) {
+            for (keyword in sendKeywords) {
+                if (contentDesc.contains(keyword) || text.contains(keyword) || viewId.contains(keyword)) {
+                    return node
+                }
+            }
+        }
+        
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findSendButton(child)
+            if (result != null) return result
+        }
+        
+        return null
+    }
+
+    private fun setTextInField(node: AccessibilityNodeInfo, text: String): Boolean {
+        val arguments = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
     }
 }
+
+/**
+ * Represents a reply that's waiting to be sent
+ */
+data class PendingReply(
+    val packageName: String,
+    val sender: String,
+    val message: String
+)

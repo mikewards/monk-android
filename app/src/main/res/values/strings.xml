@@ -2,44 +2,38 @@
 <resources>
     <string name="app_name">Monk</string>
     
-    <!-- Accessibility Service -->
-    <string name="accessibility_service_description">Monk uses accessibility to send auto-replies on your behalf when you\'re in focus mode. This allows the app to interact with messaging apps like WhatsApp, Messenger, and Instagram to send your custom \"busy\" message.</string>
+    <!-- Focus Mode -->
+    <string name="focus_active">Focus active</string>
+    <string name="focus_ready">Ready</string>
+    <string name="focus_begin">BEGIN</string>
+    <string name="focus_end">END</string>
     
-    <!-- Notifications -->
-    <string name="focus_notification_channel">Focus Mode</string>
-    <string name="focus_notification_title">Monk Mode Active</string>
-    <string name="focus_notification_text">You\'re in focus mode. Auto-replies are enabled.</string>
+    <!-- Stats -->
+    <string name="stat_silenced">silenced</string>
+    <string name="stat_replies">replies</string>
     
-    <!-- Default Messages -->
-    <string name="default_reply_message">Hey! I\'m currently in focus mode and can\'t respond right now. I\'ll get back to you soon! 🧘</string>
-    
-    <!-- Onboarding -->
-    <string name="onboarding_welcome_title">Welcome to Monk</string>
-    <string name="onboarding_welcome_subtitle">Focus without distractions</string>
-    <string name="onboarding_notification_title">Notification Access</string>
-    <string name="onboarding_notification_subtitle">We need this to read incoming messages and silence notifications</string>
-    <string name="onboarding_accessibility_title">Accessibility Access</string>
-    <string name="onboarding_accessibility_subtitle">We need this to send auto-replies on your behalf</string>
-    <string name="onboarding_apps_title">Choose Apps</string>
-    <string name="onboarding_apps_subtitle">Select which apps should receive auto-replies</string>
-    <string name="onboarding_message_title">Your Message</string>
-    <string name="onboarding_message_subtitle">Customize your auto-reply message</string>
-    
-    <!-- Buttons -->
-    <string name="btn_get_started">Get Started</string>
-    <string name="btn_enable">Enable</string>
-    <string name="btn_continue">Continue</string>
-    <string name="btn_finish">Finish Setup</string>
-    <string name="btn_start_focus">Start Focus</string>
-    <string name="btn_stop_focus">End Focus</string>
+    <!-- Permissions -->
+    <string name="permission_notification">Notification Access</string>
+    <string name="permission_accessibility">Accessibility</string>
+    <string name="permission_sms">SMS Access</string>
+    <string name="permission_battery">Battery Unrestricted</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_reply_message">Reply Message</string>
-    <string name="settings_reply_cooldown">Reply Cooldown</string>
-    <string name="settings_cooldown_description">Minutes before replying to the same person again</string>
-    <string name="settings_whitelist">Whitelisted Contacts</string>
-    <string name="settings_whitelist_description">These contacts can still reach you during focus mode</string>
+    <string name="settings_auto_reply">Auto-Reply</string>
+    <string name="settings_cooldown">Cooldown</string>
     <string name="settings_apps">Enabled Apps</string>
-    <string name="settings_apps_description">Apps that will receive auto-replies</string>
+    <string name="settings_contacts">Whitelisted Contacts</string>
+    
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_description">Monk uses accessibility to send auto-reply messages in your messaging apps during focus mode. This permission allows Monk to type and send your configured reply message when you receive a message while focusing.</string>
+    
+    <!-- Notification Service -->
+    <string name="notification_listener_description">Monk needs notification access to detect incoming messages and trigger auto-replies during focus mode.</string>
+    
+    <!-- Default Reply -->
+    <string name="default_reply">I\'m currently in monk mode and will respond later.</string>
+    
+    <!-- Notification Channel -->
+    <string name="focus_notification_channel">Focus Mode</string>
 </resources>

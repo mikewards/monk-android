@@ -1,74 +1,120 @@
 package com.monk.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.monk.app.domain.model.SupportedApp
 import com.monk.app.ui.theme.*
+import com.monk.app.util.PermissionHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppsScreen(
     onNavigateBack: () -> Unit
 ) {
-    // Track which apps are enabled
+    val context = LocalContext.current
     var enabledApps by remember { 
-        mutableStateOf(SupportedApp.defaultEnabled().map { it.packageName }.toSet())
+        mutableStateOf(SupportedApp.entries.map { it.packageName }.toSet())
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Enabled Apps", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        }
-    ) { padding ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .systemBarsPadding()
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Info text
-            Surface(
+            // Header
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = Primary.copy(alpha = 0.1f)
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                TextButton(onClick = onNavigateBack) {
+                    Text(
+                        "← Back",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Primary
+                    )
+                }
+                
                 Text(
-                    text = "Select which apps should receive your auto-reply message when you're in focus mode.",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PrimaryVariant
+                    text = "APPS",
+                    style = MaterialTheme.typography.labelLarge,
+                    letterSpacing = 3.sp,
+                    color = TextMuted
                 )
+                
+                Spacer(modifier = Modifier.width(64.dp))
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Description
+            Text(
+                text = "Select apps that will receive auto-replies during focus mode.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextMuted,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Helper text about notifications
+            Surface(
+                onClick = { PermissionHelper.openAppNotificationSettings(context) },
+                shape = RoundedCornerShape(8.dp),
+                color = Primary.copy(alpha = 0.05f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Auto-reply only works for apps with notifications enabled.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "→",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Apps List
             LazyColumn(
-                contentPadding = PaddingValues(16.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(SupportedApp.entries) { app ->
-                    AppItem(
+                    AppToggleItem(
                         app = app,
-                        isEnabled = enabledApps.contains(app.packageName),
+                        isEnabled = app.packageName in enabledApps,
                         onToggle = { enabled ->
                             enabledApps = if (enabled) {
                                 enabledApps + app.packageName
@@ -78,83 +124,56 @@ fun AppsScreen(
                         }
                     )
                 }
+                
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AppItem(
+private fun AppToggleItem(
     app: SupportedApp,
     isEnabled: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
+        color = SurfaceElevated
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // App Icon placeholder (emoji for now)
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Gray100,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Text(
-                        text = getAppEmoji(app),
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = app.displayName,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = Primary
                 )
                 Text(
                     text = app.packageName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Gray500
+                    color = TextHint
                 )
             }
-
+            
             Switch(
                 checked = isEnabled,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = OnPrimary,
-                    checkedTrackColor = Primary
+                    checkedThumbColor = SurfaceElevated,
+                    checkedTrackColor = Primary,
+                    uncheckedThumbColor = Gray400,
+                    uncheckedTrackColor = Gray200
                 )
             )
         }
-    }
-}
-
-private fun getAppEmoji(app: SupportedApp): String {
-    return when (app) {
-        SupportedApp.WHATSAPP, SupportedApp.WHATSAPP_BUSINESS -> "💬"
-        SupportedApp.MESSENGER, SupportedApp.MESSENGER_LITE -> "💙"
-        SupportedApp.INSTAGRAM -> "📷"
-        SupportedApp.TELEGRAM, SupportedApp.TELEGRAM_X -> "✈️"
-        SupportedApp.SIGNAL -> "🔒"
-        SupportedApp.MESSAGES, SupportedApp.SAMSUNG_MESSAGES -> "💬"
-        SupportedApp.DISCORD -> "🎮"
-        SupportedApp.SLACK -> "💼"
-        SupportedApp.TWITTER -> "🐦"
-        SupportedApp.SNAPCHAT -> "👻"
     }
 }
