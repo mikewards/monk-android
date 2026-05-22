@@ -8,7 +8,7 @@ Paste this into a new agent when starting work on this project.
 
 Monk is an Android focus/productivity app that silences notifications and sends automatic replies during focus sessions. Privacy-first: works completely offline with no data transmission.
 
-**GitHub:** https://github.com/wardmic4/monk-android
+**GitHub:** https://github.com/mikewards/monk-android
 
 **Stack:** Android (Kotlin, Jetpack Compose, Hilt DI, DataStore)
 
