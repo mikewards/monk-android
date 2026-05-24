@@ -1,6 +1,6 @@
 # Monk
 
-Focus without distractions. Monk silences notifications and sends auto-replies so you can concentrate on what matters.
+A focus app built on one conviction: **it should know nothing about you.** No internet permission — it can't phone home even if it wanted to. No accounts, no analytics, no cloud. Monk silences notifications and sends auto-replies during a focus session, processing everything in memory and forgetting it when you're done.
 
 ## Features
 
